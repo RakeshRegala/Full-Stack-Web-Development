@@ -1,0 +1,61 @@
+const TelegramBot = require('node-telegram-bot-api');
+const axios = require('axios');
+
+
+const BOT_TOKEN = '';
+const OMDB_API_KEY = ''; 
+
+
+const bot = new TelegramBot(BOT_TOKEN, { polling: true });
+
+bot.onText(/\/start/, (msg) => {
+    bot.sendMessage(
+        msg.chat.id,
+        `Welcome, ${msg.chat.first_name}! 🎬
+I can help you find information about movies. 
+Just send me a movie name!`
+    );
+});
+
+bot.on('message', async (msg) => {
+    const chatId = msg.chat.id;
+    const query = msg.text.trim();
+
+    if (query === '/start') return;
+
+    
+    try {
+        const response = await axios.get(`https://www.omdbapi.com/`, {
+            params: {
+                apikey: OMDB_API_KEY ,
+                t: query,
+            },
+        });
+
+        const movie = response.data;
+
+        if (movie.Response === 'False') {
+            bot.sendMessage(chatId, `❌ Sorry, I couldn't find any movie titled "${query}".`);
+        } else {
+            bot.sendMessage(
+                chatId,
+                `🎥 *${movie.Title}* (${movie.Year})\n
+⭐️ *IMDB Rating*: ${movie.imdbRating}\n
+📖 *Plot*: ${movie.Plot}\n
+🎭 *Genre*: ${movie.Genre}\n
+👨‍💼 *Director*: ${movie.Director}\n
+🎞 *Actors*: ${movie.Actors}`,
+                { parse_mode: 'Markdown' }
+            );
+
+            if (movie.Poster && movie.Poster !== 'N/A') {
+                bot.sendPhoto(chatId, movie.Poster);
+            }
+        }
+    } catch (error) {
+        console.error('Error fetching movie data:', error);
+        bot.sendMessage(chatId, '⚠️ Something went wrong. Please try again later.');
+    }
+});
+
+console.log('Bot is running...');
