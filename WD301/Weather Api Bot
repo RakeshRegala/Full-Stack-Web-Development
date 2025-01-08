@@ -1,0 +1,62 @@
+const TelegramBot = require('node-telegram-bot-api');
+const axios = require('axios');
+
+const TELEGRAM_BOT_TOKEN = 'YOUR_TOKEN_HERE'; 
+const WEATHER_API_KEY = 'YOUR_API_TOKEN'; 
+
+const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
+
+// Function to fetch weather data
+const getWeather = async (city) => {
+  try {
+    const response = await axios.get(
+      `http://api.weatherapi.com/v1/current.json`,
+      {
+        params: {
+          key: WEATHER_API_KEY,
+          q: city,
+        },
+      }
+    );
+    const data = response.data;
+
+  
+    const location = `${data.location.name}, ${data.location.region}, ${data.location.country}`;
+    const temperature = data.current.temp_c;
+    const condition = data.current.condition.text;
+    const wind = `${data.current.wind_kph} kph ${data.current.wind_dir}`;
+    const humidity = data.current.humidity;
+    const feelsLike = data.current.feelslike_c;
+    const visibility = data.current.vis_km;
+
+    // Build the weather information message
+    return `🌍 *Location*: ${location}
+🌡️ *Temperature*: ${temperature}°C
+🌤️ *Condition*: ${condition}
+💨 *Wind*: ${wind}
+💧 *Humidity*: ${humidity}%
+🌡️ *Feels Like*: ${feelsLike}°C
+👁️ *Visibility*: ${visibility} km`;
+  } catch (error) {
+    console.error(error);
+    return "Sorry, I couldn't find weather information for location "+city+".";
+  }
+};
+
+bot.onText(/\/start/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(
+    chatId,
+    'Welcome! 🌦️ Send me a city name to get the weather information.'
+  );
+});
+
+bot.on('message', async (msg) => {
+  const chatId = msg.chat.id;
+  const city = msg.text;
+
+  if (city.startsWith('/')) return;
+
+  const weatherInfo = await getWeather(city);
+  bot.sendMessage(chatId, weatherInfo, { parse_mode: 'Markdown' });
+});
