@@ -1,0 +1,94 @@
+const TelegramBot = require('node-telegram-bot-api');
+const axios = require('axios');
+const { initializeApp, cert } = require('firebase-admin/app');
+const { getFirestore } = require('firebase-admin/firestore');
+
+const TELEGRAM_BOT_TOKEN = '8009487703:AAG8Em0317c7tmruyKiNNXajBoj5sgsuzhw'; 
+const WEATHER_API_KEY = '416ed3c6a8714082908132908241812'; 
+
+var serviceAccount = require("./key.json");
+
+initializeApp({
+  credential: cert(serviceAccount)
+});
+
+const bot = new TelegramBot(TELEGRAM_BOT_TOKEN, { polling: true });
+const db = getFirestore();
+
+// Function to fetch weather data
+const getWeather = async (city) => {
+  try {
+    const response = await axios.get(
+      `http://api.weatherapi.com/v1/current.json`,
+      {
+        params: {
+          key: WEATHER_API_KEY,
+          q: city,
+        },
+      }
+    );
+    const data = response.data;
+
+    const location = `${data.location.name}, ${data.location.region}, ${data.location.country}`;
+    const temperature = data.current.temp_c;
+    const condition = data.current.condition.text;
+    const wind = `${data.current.wind_kph} kph ${data.current.wind_dir}`;
+    const humidity = data.current.humidity;
+    const feelsLike = data.current.feelslike_c;
+    const visibility = data.current.vis_km;
+
+    return `🌍 *Location*: ${location}
+🌡️ *Temperature*: ${temperature}°C
+🌤️ *Condition*: ${condition}
+💨 *Wind*: ${wind}
+💧 *Humidity*: ${humidity}%
+🌡️ *Feels Like*: ${feelsLike}°C
+👁️ *Visibility*: ${visibility} km`;
+  } catch (error) {
+    console.error(error);
+    return `Sorry, I couldn't find weather information for location ${city}.`;
+  }
+};
+
+bot.onText(/\/start/, (msg) => {
+  const chatId = msg.chat.id;
+  bot.sendMessage(chatId, 'Welcome! 🌦️ Send me a city name to get the weather information.');
+});
+
+bot.on('message', async (msg) => {
+  const chatId = msg.chat.id;
+  const city = msg.text;
+
+  if (city.startsWith('/')) return;
+
+  if (city.toUpperCase() === 'GET') {
+    try {
+      const snapshot = await db.collection('Weather').get();
+      if (snapshot.empty) {
+        bot.sendMessage(chatId, 'No weather data found in the database.');
+        return;
+      }
+      
+      let responseMessage = '📜 *Stored Weather Queries:*\n';
+      snapshot.forEach(doc => {
+        const data = doc.data();
+        responseMessage += `👤 *User*: ${data.name}\n🔍 *Query*: ${data.UserInput}\n\n`;
+      });
+
+      bot.sendMessage(chatId, responseMessage, { parse_mode: 'Markdown' });
+    } catch (error) {
+      console.error('Error fetching data:', error);
+      bot.sendMessage(chatId, 'Error retrieving data.');
+    }
+    return;
+  }
+
+  // Store user input in Firestore
+  await db.collection('Weather').add({
+    name: msg.chat.first_name,
+    UserInput: city
+  });
+
+  const weatherInfo = await getWeather(city);
+  bot.sendMessage(chatId, weatherInfo, { parse_mode: 'Markdown' });
+});
