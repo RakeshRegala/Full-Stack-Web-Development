@@ -3,8 +3,8 @@ const axios = require('axios');
 const { initializeApp, cert } = require('firebase-admin/app');
 const { getFirestore } = require('firebase-admin/firestore');
 
-const TELEGRAM_BOT_TOKEN = '8009487703:AAG8Em0317c7tmruyKiNNXajBoj5sgsuzhw'; 
-const WEATHER_API_KEY = '416ed3c6a8714082908132908241812'; 
+const TELEGRAM_BOT_TOKEN = ''; 
+const WEATHER_API_KEY = ''; 
 
 var serviceAccount = require("./key.json");
 
